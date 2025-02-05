@@ -1,6 +1,7 @@
 const prisma = require("../configs/prisma");
 const createError = require("../utils/createError");
 const bcrypt = require("bcryptjs")
+const jwt = require("jsonwebtoken")
 
 exports.register = async (req,res,next)=>{
     try{
@@ -52,12 +53,48 @@ exports.login = async (req,res,next)=>{
                 email:email,
             }
         })
-        console.log(profile)
+        if(!profile){
+            return createError(400, "Email, Password is invalid!!");
+        };
+        const isMatch = bcrypt.compareSync( password, profile.password);
+        console.log(isMatch);
+
+        if(!isMatch){
+            return createError(400, "Email, Password is invalid!!")
+        }
+        
         // Step 3 Generate token
+        const payload = {
+            id: profile.id,
+            email: profile.email,
+            firstname: profile.firstname,
+            lastname: profile.lastname,
+            role: profile.role,
+        };
+        
+        const token = jwt.sign(payload, process.env.SECRET, {
+            expiresIn: "1d",
+        });
+
+
         // Step 4 Response
 
-        res.json({message:"hello login"})
+        res.json({
+            message:"Login Success",
+            payload: payload,
+            token: token,
+        });
     } catch (error) {
+        console.log(error.message)
         next(error)
     }    
 }
+
+exports.currentUser = async(req, res, next) => {
+    try {
+        res.json({message: "Hello, current user"})
+    } catch (error) {
+        console.log(error);
+        next(error)
+    }
+} 

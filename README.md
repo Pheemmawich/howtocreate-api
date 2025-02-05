@@ -196,24 +196,27 @@ module.exports = authRouter;
 ```
 ## Step 9 Prisma
 
-bash
+```bash
 npx prisma db push
+```
 # or
-bash
+```bash
 npx prisma migrate dev --name init
+```
 
 ### Config prisma
 /config/prisma.js
-js
+```js
 const {PrismaClient} = require("@prisma/client")
 
 const prisma = new PrismaClient()
 
 module.exports = prisma
+```
 update code
 Register
 /controllers/auth-con.js
-js
+```js
 const createError = require("../utils/create-error")
 const prisma = require("../configs/prisma")
 const bcrypt = require("bcryptjs")
@@ -264,3 +267,107 @@ exports.login = (req,res,next)=>{
         next(error)
     }    
 }
+
+## Step 10 Login
+/controllers/auth-con.js
+```js
+exports.login = async (req,res,next)=>{
+    try {
+        // Step 1 req.body
+        const {email, password} = req.body
+        // Step 2 Check email and password
+        const profile = await prisma.profile.findFirst({
+            where:{
+                email:email
+            }
+        })
+        if(!profile){
+            return createError(400,"Email, Password is invalid!!!")
+        }
+
+        const isMatch = bcrypt.compareSync(password,profile.password)
+
+        if(!isMatch){
+            return createError(400,"Email, Password is invalid!!!")
+        }
+        // Step 3 Generate token
+        const payload = {
+            id:profile.id,
+            email:profile.email,
+            firstname:profile.firstname,
+            lastname:profile.lastname,
+            role: profile.role
+        }
+        const token = jwt.sign(payload,process.env.SECRET,{
+            expiresIn:"1d"
+        })
+
+        // console.log(token)
+        // Step 4 Response
+        res.json({message:"Login Success",
+            payload: payload,
+            token: token
+        })
+    } catch (error) {
+        console.log(error.message)
+        next(error)
+    }    
+}
+```
+
+## Step 11 Current-user
+/controllers/auth-con.js
+```js
+exports.currentUser = async(req,res,next)=>{
+    try {
+        res.json({message:"Hello, current user"})
+    } catch (error) {
+        next(error)
+    }
+}
+```
+
+## Step 12 Create file user-router.js in folder routes and Create file user-con.js in folder controllers
+/routes/user-router.js
+```js
+const express = require('express')
+const userRouter = express.Router()
+const userController = require("../controllers/user-con")
+
+// @ENDPOINT http://localhost:8000/api/user
+userRouter.get('/user', userController.listUsers)
+userRouter.patch('/user/update-role', userController.updateRole)
+userRouter.delete('/user/:id', userController.deleteUser)
+
+module.exports = userRouter
+```
+/controllers/user-con.js
+```js
+// 1.List all users
+// 2.Update Role
+// 3.Delete User
+
+exports.listUsers = async(req,res,next)=>{
+    try {
+        res.json({message:"Hello, List Users"})
+    } catch (error) {
+        next(error)
+    }
+}
+
+exports.updateRole = async(req,res,next)=>{
+    try {
+        res.json({message:"Hello, Update Role"})
+    } catch (error) {
+        next(error)
+    }
+}
+
+exports.deleteUser = async(req,res,next)=>{
+    try {
+        res.json({message:"Hello, Delete Users"})
+    } catch (error) {
+        next(error)
+    }
+}
+```
