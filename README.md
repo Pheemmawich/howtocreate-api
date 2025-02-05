@@ -23,7 +23,7 @@ next Step
 copy code from repo
 only first time
 ```bash
-git remote add origin https://github.com/Teepakorn-Sangiamsak/test-project-api.git
+git remote add origin https://github.com/Pheemmawich/howtocreate-api.git
 git branch -M main
 git push -u origin main
 ```
@@ -129,3 +129,138 @@ git add .
 git commit -m "message"
 git push
 ```
+
+|MEHTOD|ENDPOINT|BODY|
+|-----|-----|-----|
+POST|/api/register| email,password|
+
+
+## Step 8 validate with zod
+
+/middlewares/validators.js
+
+```js
+
+const { z } = require("zod");
+
+//npm i zod
+//TEST validator
+exports.registerSchema = z.object({
+    email: z.string().email("Email ไม่ถูกต้อง"),
+    firstname: z.string().min(3, "Firstname ต้องมากกว่า 3 อักขระ"),
+    lastname: z.string().min(3, "Lastname ต้องมากกว่า3อักขระ"),
+    password: z.string().min(6, "Password ต้องมากกว่า 6 อักขระ"),
+    confirmPassword: z.string().min(6, "Confirm Password ต้องมากกว่า 6 อักขระ")
+}).refine((data) => data.password === data.confirmPassword,{
+    message: "Confirm Password ไม่ตรงกัน",
+    path:["confirmPassword"]
+})
+
+exports.loginSchema = z.object({
+    email: z.string().email("Email ไม่ถูกต้อง"),
+    password: z.string().min(6, "Password ต้องมากกว่า 6 อักขระ"),
+})
+
+exports.validateWithZod = (schema) => (req, res, next) => {
+    try {
+        console.log("Hello middleware");
+        schema.parse(req.body);
+        next();
+    } catch (error) {
+        const errMsg = error.errors.map((el) => el.message)
+        const errTxt = errMsg.join(",")
+        const mergeError = new Error(errTxt)
+        next(mergeError);
+    }
+}
+
+
+```
+
+and then update code
+/routes/auth-router.js
+
+```js
+const express = require("express");
+const authRouter = express.Router();
+const authController = require("../controllers/auth-con");
+const { validateWithZod, registerSchema, loginSchema } = require("../middlewares.js/validator");
+
+
+// @ENDPOINT http://localhost:8000/api/register
+authRouter.post('/register', validateWithZod(registerSchema), authController.register );
+authRouter.post('/login',validateWithZod(loginSchema), authController.login );
+
+// export
+module.exports = authRouter;
+```
+## Step 9 Prisma
+
+bash
+npx prisma db push
+# or
+bash
+npx prisma migrate dev --name init
+
+### Config prisma
+/config/prisma.js
+js
+const {PrismaClient} = require("@prisma/client")
+
+const prisma = new PrismaClient()
+
+module.exports = prisma
+update code
+Register
+/controllers/auth-con.js
+js
+const createError = require("../utils/create-error")
+const prisma = require("../configs/prisma")
+const bcrypt = require("bcryptjs")
+
+exports.register = async (req,res,next)=>{
+    try{
+        // Step 1 req.body
+        const {email, firstname , lastname ,password, confirmPassword} = req.body
+        // Step 2 validate}
+        // Step 3 Check already
+        const checkEmail = await prisma.profile.findFirst({
+            where:{
+                email:email
+            }
+        })
+        console.log(checkEmail)
+        if(checkEmail){
+            return checkEmail(400,"Email is already exits!!!")
+        }
+        // Step 4 Encrypt bcrypt
+        const salt = bcrypt.genSaltSync(10)
+        const hashedPassword = bcrypt.hashSync(password,salt)
+        // console.log(hashedPassword)
+        // Step 5 Insert to DB
+        const profile = await prisma.profile.create({
+            data:{
+                email: email,
+                firstname: firstname,
+                lastname: lastname,
+                password: hashedPassword
+            }
+        })
+        // Step 6 Response
+        res.json({message:"Register Success"})
+    }catch(error){
+        console.log("Step 2 Catch")
+        next(error)
+    }
+
+}
+
+exports.login = (req,res,next)=>{
+    try {
+        console.log(dsgdsgfs)
+        res.json({message:"hello login"})
+    } catch (error) {
+        console.log(error.message)
+        next(error)
+    }    
+}
